@@ -84,7 +84,7 @@ def main():
         st.session_state.processComplete = None
 
     # Use the direct download link for Google Drive PDF
-    pdf_url = "https://drive.google.com/file/d/1cTZoYuVeLDB7o9iEWlCwddunCMsjpK26/view?usp=sharing"
+    pdf_url = "https://github.com/BushraAkram111/H2S-RAG-Chatbot/blob/main/H2S%20Lec_Data.pdf"
     default_google_api_key = ""
     
     google_api_key = user_google_api_key if user_google_api_key else default_google_api_key
