@@ -42,6 +42,7 @@ def main():
             border-radius: 50%;
             overflow: hidden;
             margin-right: 15px;
+            aspect-ratio: 1 / 1;
         }
         .logo img {
             width: 100%;
@@ -51,6 +52,7 @@ def main():
         .title {
             font-size: 24px;
             font-weight: bold;
+            text-align: center;
         }
         </style>
         <div class="header-container">
@@ -83,8 +85,8 @@ def main():
     if "processComplete" not in st.session_state:
         st.session_state.processComplete = None
 
-    # Use the direct download link for Google Drive PDF
-    pdf_url = "https://github.com/BushraAkram111/H2S-RAG-Chatbot/blob/main/H2S%20Lec_Data.pdf"
+    # Updated Google Drive PDF link
+    pdf_url = "https://drive.google.com/uc?export=download&id=1cTZoYuVeLDB7o9iEWlCwddunCMsjpK26"
     default_google_api_key = ""
     
     google_api_key = user_google_api_key if user_google_api_key else default_google_api_key
