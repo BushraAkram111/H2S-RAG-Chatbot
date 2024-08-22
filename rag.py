@@ -42,6 +42,7 @@ def main():
             border-radius: 50%;
             overflow: hidden;
             margin-right: 15px;
+            aspect-ratio: 1 / 1;
         }
         .logo img {
             width: 100%;
@@ -51,6 +52,7 @@ def main():
         .title {
             font-size: 24px;
             font-weight: bold;
+            text-align: center;
         }
         </style>
         <div class="header-container">
@@ -64,7 +66,6 @@ def main():
         """,
         unsafe_allow_html=True
     )
-
     # Description of the chatbot
     st.markdown("""
     **HopeToSkill AI Chatbot** is designed to assist you with all your questions related to the *Hope To Skill AI Advance* course. Powered by advanced AI models, this chatbot allows you to interact with the course content through a simple chat interface. Just ask your questions, and HopeToSkill AI Chatbot will provide precise answers based on the course material.
