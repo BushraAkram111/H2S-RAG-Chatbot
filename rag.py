@@ -75,7 +75,7 @@ def main():
     input_query = st.text_input("Type your question here...")
 
     # Sidebar for API Key
-    st.sidebar.subheader("Google API Key")
+    st.sidebar.subheader("AIzaSyBTfA6_lri8MtjYKccTMZ8umT_uvXa6hHU")
     user_google_api_key = st.sidebar.text_input("Enter your Google API key (Optional)", type="password")
     
     if "conversation" not in st.session_state:
