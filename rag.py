@@ -14,13 +14,17 @@ import requests
 # Function to download and extract text from PDF from URL
 def load_pdf_from_url(pdf_url):
     try:
+        # Download the PDF file
         response = requests.get(pdf_url)
         response.raise_for_status()  # Ensure we got a successful response
-        with open("downloaded_pdf.pdf", "wb") as f:
+
+        pdf_path = "downloaded_pdf.pdf"
+        with open(pdf_path, "wb") as f:
             f.write(response.content)
-        
+
+        # Open and read the PDF file
         text = ""
-        with open("downloaded_pdf.pdf", "rb") as f:
+        with open(pdf_path, "rb") as f:
             pdf_reader = PdfReader(f)
             for page in pdf_reader.pages:
                 page_text = page.extract_text()
@@ -33,6 +37,9 @@ def load_pdf_from_url(pdf_url):
         return ""
     except PdfReader.errors.PdfReadError as e:
         st.error(f"Error reading PDF: {e}")
+        return ""
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {e}")
         return ""
 
 def main():
