@@ -8,7 +8,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 from langchain.vectorstores import FAISS
-from PyPDF2 import PdfReader
+from PyPDF2 import PdfReader, PdfReadError
 import requests
 from io import BytesIO
 import logging
@@ -22,9 +22,10 @@ def load_pdf_from_url(pdf_url):
         # Download the PDF from GitHub
         response = requests.get(pdf_url)
         response.raise_for_status()  # Check for HTTP errors
-        pdf_file = BytesIO(response.content)
+        logging.info("PDF downloaded successfully.")
         
-        # Read the PDF
+        # Read the PDF from BytesIO
+        pdf_file = BytesIO(response.content)
         text = ""
         try:
             pdf_reader = PdfReader(pdf_file)
@@ -34,7 +35,8 @@ def load_pdf_from_url(pdf_url):
                     text += page_text
             if not text:
                 st.error("The PDF appears to be empty or cannot be read.")
-        except PyPDF2.errors.PdfReadError as e:
+                logging.warning("The PDF appears to be empty or cannot be read.")
+        except PdfReadError as e:
             st.error(f"Error reading PDF: {e}")
             logging.error(f"Error reading PDF: {e}")
         return text
@@ -89,6 +91,8 @@ def rag(vector_db, input_query, google_api_key):
         response = rag_chain.invoke(input_query)
         return response
     except Exception as ex:
+        st.error(f"An error occurred during RAG processing: {ex}")
+        logging.error(f"An error occurred during RAG processing: {ex}")
         return str(ex)
 
 def main():
@@ -160,10 +164,13 @@ def main():
     # Process the PDF in the background (hidden from user)
     if st.session_state.processComplete is None:
         files_text = load_pdf_from_url(pdf_url)
-        text_chunks = get_text_chunks(files_text)
-        vectorstore = get_vectorstore(text_chunks)
-        st.session_state.conversation = vectorstore
-        st.session_state.processComplete = True
+        if files_text:
+            text_chunks = get_text_chunks(files_text)
+            vectorstore = get_vectorstore(text_chunks)
+            st.session_state.conversation = vectorstore
+            st.session_state.processComplete = True
+        else:
+            st.error("Failed to process PDF content.")
 
     # Chatbot functionality
     if input_query:
