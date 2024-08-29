@@ -13,15 +13,27 @@ import requests
 
 # Function to download and extract text from PDF from URL
 def load_pdf_from_url(pdf_url):
-    response = requests.get(pdf_url)
-    with open("downloaded_pdf.pdf", "wb") as f:
-        f.write(response.content)
-
-    text = ""
-    pdf_reader = PdfReader("downloaded_pdf.pdf")
-    for page in pdf_reader.pages:
-        text += page.extract_text()
-    return text
+    try:
+        response = requests.get(pdf_url)
+        response.raise_for_status()  # Ensure we got a successful response
+        with open("downloaded_pdf.pdf", "wb") as f:
+            f.write(response.content)
+        
+        text = ""
+        with open("downloaded_pdf.pdf", "rb") as f:
+            pdf_reader = PdfReader(f)
+            for page in pdf_reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text
+        return text
+    
+    except requests.RequestException as e:
+        st.error(f"Error downloading PDF: {e}")
+        return ""
+    except PdfReader.errors.PdfReadError as e:
+        st.error(f"Error reading PDF: {e}")
+        return ""
 
 def main():
     st.set_page_config(page_title="Hope_To_Skill AI Chatbot", page_icon=":robot_face:")
@@ -94,10 +106,13 @@ def main():
     # Process the PDF in the background (hidden from user)
     if st.session_state.processComplete is None:
         files_text = load_pdf_from_url(pdf_url)
-        text_chunks = get_text_chunks(files_text)
-        vectorstore = get_vectorstore(text_chunks)
-        st.session_state.conversation = vectorstore
-        st.session_state.processComplete = True
+        if files_text:  # Proceed only if PDF was successfully read
+            text_chunks = get_text_chunks(files_text)
+            vectorstore = get_vectorstore(text_chunks)
+            st.session_state.conversation = vectorstore
+            st.session_state.processComplete = True
+        else:
+            st.error("Failed to process the PDF file.")
 
     # Chatbot functionality
     if input_query:
