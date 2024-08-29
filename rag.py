@@ -1,14 +1,6 @@
 import os
-import streamlit as st
-from streamlit_chat import message
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel
-from langchain.vectorstores import FAISS
 import requests
+import streamlit as st
 import pdfplumber
 
 # Function to download and extract text from PDF from URL
@@ -38,6 +30,9 @@ def load_pdf_from_url(pdf_url):
     
     except requests.RequestException as e:
         st.error(f"Error downloading PDF: {e}")
+        return ""
+    except pdfplumber.exceptions.PDFSyntaxError as e:
+        st.error(f"PDF Syntax Error: {e}")
         return ""
     except Exception as e:
         st.error(f"An unexpected error occurred: {e}")
