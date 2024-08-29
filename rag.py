@@ -2,6 +2,7 @@ import os
 import requests
 import streamlit as st
 import pdfplumber
+from io import BytesIO
 
 # Function to download and extract text from PDF from URL
 def load_pdf_from_url(pdf_url):
@@ -15,13 +16,12 @@ def load_pdf_from_url(pdf_url):
         response = requests.get(pdf_url)
         response.raise_for_status()  # Ensure we got a successful response
 
-        pdf_path = "downloaded_pdf.pdf"
-        with open(pdf_path, "wb") as f:
-            f.write(response.content)
-
-        # Open and read the PDF file
+        # Open the PDF file in memory
+        pdf_file = BytesIO(response.content)
         text = ""
-        with pdfplumber.open(pdf_path) as pdf:
+
+        # Extract text using pdfplumber
+        with pdfplumber.open(pdf_file) as pdf:
             for page in pdf.pages:
                 page_text = page.extract_text()
                 if page_text:
