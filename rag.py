@@ -16,20 +16,27 @@ import logging
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
-# Function to download and extract text from PDF from URL
+# Function to download and extract text from PDF from GitHub URL
 def load_pdf_from_url(pdf_url):
     try:
+        # Download the PDF from GitHub
         response = requests.get(pdf_url)
-        response.raise_for_status()
+        response.raise_for_status()  # Check for HTTP errors
         pdf_file = BytesIO(response.content)
+        
+        # Read the PDF
         text = ""
-        pdf_reader = PdfReader(pdf_file)
-        for page in pdf_reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text
-        if not text:
-            st.error("The PDF appears to be empty or cannot be read.")
+        try:
+            pdf_reader = PdfReader(pdf_file)
+            for page in pdf_reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text
+            if not text:
+                st.error("The PDF appears to be empty or cannot be read.")
+        except PyPDF2.errors.PdfReadError as e:
+            st.error(f"Error reading PDF: {e}")
+            logging.error(f"Error reading PDF: {e}")
         return text
     except requests.RequestException as e:
         st.error(f"Error downloading PDF: {e}")
@@ -39,6 +46,50 @@ def load_pdf_from_url(pdf_url):
         st.error(f"An unexpected error occurred: {e}")
         logging.error(f"An unexpected error occurred: {e}")
         return ""
+
+# Function to split text into smaller chunks
+def get_text_chunks(text):
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=900,
+        chunk_overlap=100,
+        length_function=len,
+        is_separator_regex=False,
+    )
+    return text_splitter.split_text(text)
+
+# Function to generate vector store from text chunks
+def get_vectorstore(text_chunks):
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    knowledge_base = FAISS.from_texts(text_chunks, embeddings)
+    return knowledge_base
+
+# Function to perform question answering with Google Generative AI
+def rag(vector_db, input_query, google_api_key):
+    try:
+        template = """You are an AI assistant that assists users by providing answers to their questions by extracting information from the provided context:
+        {context}.
+        If you do not find any relevant information from context for the given question, simply say 'I do not know'. Do not try to make up an answer.
+        Answer should not be greater than 5 lines.
+        Question: {question}
+        """
+
+        prompt = ChatPromptTemplate.from_template(template)
+        retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 1})
+        setup_and_retrieval = RunnableParallel(
+            {"context": retriever, "question": RunnablePassthrough()})
+
+        model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3, google_api_key=google_api_key)
+        output_parser = StrOutputParser()
+        rag_chain = (
+            setup_and_retrieval
+            | prompt
+            | model
+            | output_parser
+        )
+        response = rag_chain.invoke(input_query)
+        return response
+    except Exception as ex:
+        return str(ex)
 
 def main():
     st.set_page_config(page_title="Hope_To_Skill AI Chatbot", page_icon=":robot_face:")
@@ -100,8 +151,8 @@ def main():
     if "processComplete" not in st.session_state:
         st.session_state.processComplete = None
 
-    # Use the direct download link for Google Drive PDF
-    pdf_url = "https://drive.google.com/uc?id=1cTZoYuVeLDB7o9iEWlCwddunCMsjpK26"
+    # Use the direct download link for GitHub PDF
+    pdf_url = "https://github.com/BushraAkram111/H2S-RAG-Chatbot/raw/main/H2S%20Lec_Data%20(1).pdf"
     default_google_api_key = ""
     
     google_api_key = user_google_api_key if user_google_api_key else default_google_api_key
@@ -109,11 +160,10 @@ def main():
     # Process the PDF in the background (hidden from user)
     if st.session_state.processComplete is None:
         files_text = load_pdf_from_url(pdf_url)
-        if files_text:  # Proceed only if PDF was loaded successfully
-            text_chunks = get_text_chunks(files_text)
-            vectorstore = get_vectorstore(text_chunks)
-            st.session_state.conversation = vectorstore
-            st.session_state.processComplete = True
+        text_chunks = get_text_chunks(files_text)
+        vectorstore = get_vectorstore(text_chunks)
+        st.session_state.conversation = vectorstore
+        st.session_state.processComplete = True
 
     # Chatbot functionality
     if input_query:
@@ -126,51 +176,6 @@ def main():
     with response_container:
         for i, message_data in enumerate(st.session_state.chat_history):
             message(message_data["content"], is_user=message_data["is_user"], key=str(i))
-
-# Function to split text into smaller chunks
-def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=900,
-        chunk_overlap=100,
-        length_function=len,
-        is_separator_regex=False,
-    )
-    return text_splitter.split_text(text)
-
-# Function to generate vector store from text chunks
-def get_vectorstore(text_chunks):
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    knowledge_base = FAISS.from_texts(text_chunks, embeddings)
-    return knowledge_base
-
-# Function to perform question answering with Google Generative AI
-def rag(vector_db, input_query, google_api_key):
-    try:
-        template = """You are an AI assistant that assists users by providing answers to their questions by extracting information from the provided context:
-        {context}.
-        If you do not find any relevant information from context for the given question, simply say 'I do not know'. Do not try to make up an answer.
-        Answer should not be greater than 5 lines.
-        Question: {question}
-        """
-
-        prompt = ChatPromptTemplate.from_template(template)
-        retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 1})
-        setup_and_retrieval = RunnableParallel(
-            {"context": retriever, "question": RunnablePassthrough()})
-
-        model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3, google_api_key=google_api_key)
-        output_parser = StrOutputParser()
-        rag_chain = (
-            setup_and_retrieval
-            | prompt
-            | model
-            | output_parser
-        )
-        response = rag_chain.invoke(input_query)
-        return response
-    except Exception as ex:
-        logging.error(f"Error in RAG process: {ex}")
-        return str(ex)
 
 if __name__ == '__main__':
     main()
