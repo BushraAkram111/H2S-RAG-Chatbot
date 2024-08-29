@@ -1,42 +1,27 @@
 import os
-import requests
 import streamlit as st
-import pdfplumber
-from io import BytesIO
+from streamlit_chat import message
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough, RunnableParallel
+from langchain.vectorstores import FAISS
+from PyPDF2 import PdfReader
+import requests
 
 # Function to download and extract text from PDF from URL
 def load_pdf_from_url(pdf_url):
-    try:
-        # Convert Google Drive view link to direct download link
-        if "drive.google.com" in pdf_url:
-            file_id = pdf_url.split('/d/')[1].split('/')[0]
-            pdf_url = f"https://drive.google.com/uc?id={file_id}"
+    response = requests.get(pdf_url)
+    with open("downloaded_pdf.pdf", "wb") as f:
+        f.write(response.content)
 
-        # Download the PDF file
-        response = requests.get(pdf_url)
-        response.raise_for_status()  # Ensure we got a successful response
-
-        # Open the PDF file in memory
-        pdf_file = BytesIO(response.content)
-        text = ""
-
-        # Extract text using pdfplumber
-        with pdfplumber.open(pdf_file) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text
-        return text
-    
-    except requests.RequestException as e:
-        st.error(f"Error downloading PDF: {e}")
-        return ""
-    except pdfplumber.exceptions.PDFSyntaxError as e:
-        st.error(f"PDF Syntax Error: {e}")
-        return ""
-    except Exception as e:
-        st.error(f"An unexpected error occurred: {e}")
-        return ""
+    text = ""
+    pdf_reader = PdfReader("downloaded_pdf.pdf")
+    for page in pdf_reader.pages:
+        text += page.extract_text()
+    return text
 
 def main():
     st.set_page_config(page_title="Hope_To_Skill AI Chatbot", page_icon=":robot_face:")
@@ -57,7 +42,6 @@ def main():
             border-radius: 50%;
             overflow: hidden;
             margin-right: 15px;
-            aspect-ratio: 1 / 1;
         }
         .logo img {
             width: 100%;
@@ -67,7 +51,6 @@ def main():
         .title {
             font-size: 24px;
             font-weight: bold;
-            text-align: center;
         }
         </style>
         <div class="header-container">
@@ -90,7 +73,7 @@ def main():
     input_query = st.text_input("Type your question here...")
 
     # Sidebar for API Key
-    st.sidebar.subheader("")
+    st.sidebar.subheader("Google API Key")
     user_google_api_key = st.sidebar.text_input("Enter your Google API key (Optional)", type="password")
     
     if "conversation" not in st.session_state:
@@ -100,7 +83,7 @@ def main():
     if "processComplete" not in st.session_state:
         st.session_state.processComplete = None
 
-    # Updated Google Drive PDF link
+    # Use the direct download link for Google Drive PDF
     pdf_url = "https://drive.google.com/uc?id=1cTZoYuVeLDB7o9iEWlCwddunCMsjpK26"
     default_google_api_key = ""
     
@@ -109,13 +92,10 @@ def main():
     # Process the PDF in the background (hidden from user)
     if st.session_state.processComplete is None:
         files_text = load_pdf_from_url(pdf_url)
-        if files_text:  # Proceed only if PDF was successfully read
-            text_chunks = get_text_chunks(files_text)
-            vectorstore = get_vectorstore(text_chunks)
-            st.session_state.conversation = vectorstore
-            st.session_state.processComplete = True
-        else:
-            st.error("Failed to process the PDF file.")
+        text_chunks = get_text_chunks(files_text)
+        vectorstore = get_vectorstore(text_chunks)
+        st.session_state.conversation = vectorstore
+        st.session_state.processComplete = True
 
     # Chatbot functionality
     if input_query:
