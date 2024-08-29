@@ -10,30 +10,23 @@ from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 from langchain.vectorstores import FAISS
 from PyPDF2 import PdfReader
 import requests
-from io import BytesIO
 
 # Function to download and extract text from PDF from URL
 def load_pdf_from_url(pdf_url):
-    try:
-        response = requests.get(pdf_url)
-        response.raise_for_status()  # Ensure we got a successful response
+    response = requests.get(pdf_url)
+    with open("downloaded_pdf.pdf", "wb") as f:
+        f.write(response.content)
 
-        pdf_file = BytesIO(response.content)
-        text = ""
-        pdf_reader = PdfReader(pdf_file)
-        for page in pdf_reader.pages:
-            text += page.extract_text() or ""
-        return text
-    except requests.RequestException as e:
-        st.error(f"Error downloading PDF: {e}")
-        return ""
-    except Exception as e:
-        st.error(f"An unexpected error occurred: {e}")
-        return ""
+    text = ""
+    pdf_reader = PdfReader("downloaded_pdf.pdf")
+    for page in pdf_reader.pages:
+        text += page.extract_text()
+    return text
 
 def main():
     st.set_page_config(page_title="Hope_To_Skill AI Chatbot", page_icon=":robot_face:")
     
+    # Display logo and title on the same line
     st.markdown(
         """
         <style>
@@ -72,12 +65,14 @@ def main():
         unsafe_allow_html=True
     )
 
+    # Description of the chatbot
     st.markdown("""
     **HopeToSkill AI Chatbot** is designed to assist you with all your questions related to the *Hope To Skill AI Advance* course. Powered by advanced AI models, this chatbot allows you to interact with the course content through a simple chat interface. Just ask your questions, and HopeToSkill AI Chatbot will provide precise answers based on the course material.
     """)
     st.subheader("Ask a question:")
     input_query = st.text_input("Type your question here...")
 
+    # Sidebar for API Key
     st.sidebar.subheader("Google API Key")
     user_google_api_key = st.sidebar.text_input("Enter your Google API key (Optional)", type="password")
     
@@ -88,30 +83,33 @@ def main():
     if "processComplete" not in st.session_state:
         st.session_state.processComplete = None
 
+    # Use the direct download link for Google Drive PDF
     pdf_url = "https://drive.google.com/uc?id=1cTZoYuVeLDB7o9iEWlCwddunCMsjpK26"
     default_google_api_key = ""
+    
     google_api_key = user_google_api_key if user_google_api_key else default_google_api_key
 
+    # Process the PDF in the background (hidden from user)
     if st.session_state.processComplete is None:
         files_text = load_pdf_from_url(pdf_url)
-        if files_text:  # Proceed only if PDF was successfully read
-            text_chunks = get_text_chunks(files_text)
-            vectorstore = get_vectorstore(text_chunks)
-            st.session_state.conversation = vectorstore
-            st.session_state.processComplete = True
-        else:
-            st.error("Failed to process the PDF file.")
+        text_chunks = get_text_chunks(files_text)
+        vectorstore = get_vectorstore(text_chunks)
+        st.session_state.conversation = vectorstore
+        st.session_state.processComplete = True
 
+    # Chatbot functionality
     if input_query:
         response_text = rag(st.session_state.conversation, input_query, google_api_key)
         st.session_state.chat_history.append({"content": input_query, "is_user": True})
         st.session_state.chat_history.append({"content": response_text, "is_user": False})
 
+    # Display chat history
     response_container = st.container()
     with response_container:
         for i, message_data in enumerate(st.session_state.chat_history):
             message(message_data["content"], is_user=message_data["is_user"], key=str(i))
 
+# Function to split text into smaller chunks
 def get_text_chunks(text):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=900,
@@ -121,11 +119,13 @@ def get_text_chunks(text):
     )
     return text_splitter.split_text(text)
 
+# Function to generate vector store from text chunks
 def get_vectorstore(text_chunks):
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     knowledge_base = FAISS.from_texts(text_chunks, embeddings)
     return knowledge_base
 
+# Function to perform question answering with Google Generative AI
 def rag(vector_db, input_query, google_api_key):
     try:
         template = """You are an AI assistant that assists users by providing answers to their questions by extracting information from the provided context:
