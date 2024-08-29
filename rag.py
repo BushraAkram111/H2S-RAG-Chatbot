@@ -8,12 +8,17 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 from langchain.vectorstores import FAISS
-from PyPDF2 import PdfReader
 import requests
+import pdfplumber
 
 # Function to download and extract text from PDF from URL
 def load_pdf_from_url(pdf_url):
     try:
+        # Convert Google Drive view link to direct download link
+        if "drive.google.com" in pdf_url:
+            file_id = pdf_url.split('/d/')[1].split('/')[0]
+            pdf_url = f"https://drive.google.com/uc?id={file_id}"
+
         # Download the PDF file
         response = requests.get(pdf_url)
         response.raise_for_status()  # Ensure we got a successful response
@@ -24,9 +29,8 @@ def load_pdf_from_url(pdf_url):
 
         # Open and read the PDF file
         text = ""
-        with open(pdf_path, "rb") as f:
-            pdf_reader = PdfReader(f)
-            for page in pdf_reader.pages:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
                 page_text = page.extract_text()
                 if page_text:
                     text += page_text
@@ -34,9 +38,6 @@ def load_pdf_from_url(pdf_url):
     
     except requests.RequestException as e:
         st.error(f"Error downloading PDF: {e}")
-        return ""
-    except PdfReader.errors.PdfReadError as e:
-        st.error(f"Error reading PDF: {e}")
         return ""
     except Exception as e:
         st.error(f"An unexpected error occurred: {e}")
@@ -105,7 +106,7 @@ def main():
         st.session_state.processComplete = None
 
     # Updated Google Drive PDF link
-    pdf_url = "https://drive.google.com/file/d/1cTZoYuVeLDB7o9iEWlCwddunCMsjpK26/view?usp=sharing"
+    pdf_url = "https://drive.google.com/uc?id=1cTZoYuVeLDB7o9iEWlCwddunCMsjpK26"
     default_google_api_key = ""
     
     google_api_key = user_google_api_key if user_google_api_key else default_google_api_key
