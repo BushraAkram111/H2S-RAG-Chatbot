@@ -105,7 +105,7 @@ def main():
         st.session_state.processComplete = None
 
     # Updated Google Drive PDF link
-    pdf_url = "https://docs.google.com/document/d/1QFSMvwhNbHjDIv89URme387mw0I219Etw9_1e2Y5KDU/edit?usp=drive_link"
+    pdf_url = "https://drive.google.com/file/d/1cTZoYuVeLDB7o9iEWlCwddunCMsjpK26/view?usp=sharing"
     default_google_api_key = ""
     
     google_api_key = user_google_api_key if user_google_api_key else default_google_api_key
