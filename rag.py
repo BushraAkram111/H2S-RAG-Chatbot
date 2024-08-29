@@ -87,7 +87,7 @@ def main():
 
     # Updated Google Drive PDF link
     pdf_url = "https://drive.google.com/uc?export=download&id=1cTZoYuVeLDB7o9iEWlCwddunCMsjpK26"
-    default_google_api_key = "AIzaSyBTfA6_lri8MtjYKccTMZ8umT_uvXa6hHU"
+    default_google_api_key = ""
     
     google_api_key = user_google_api_key if user_google_api_key else default_google_api_key
 
