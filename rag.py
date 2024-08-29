@@ -10,18 +10,35 @@ from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 from langchain.vectorstores import FAISS
 from PyPDF2 import PdfReader
 import requests
+from io import BytesIO
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 
 # Function to download and extract text from PDF from URL
 def load_pdf_from_url(pdf_url):
-    response = requests.get(pdf_url)
-    with open("downloaded_pdf.pdf", "wb") as f:
-        f.write(response.content)
-
-    text = ""
-    pdf_reader = PdfReader("downloaded_pdf.pdf")
-    for page in pdf_reader.pages:
-        text += page.extract_text()
-    return text
+    try:
+        response = requests.get(pdf_url)
+        response.raise_for_status()
+        pdf_file = BytesIO(response.content)
+        text = ""
+        pdf_reader = PdfReader(pdf_file)
+        for page in pdf_reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text
+        if not text:
+            st.error("The PDF appears to be empty or cannot be read.")
+        return text
+    except requests.RequestException as e:
+        st.error(f"Error downloading PDF: {e}")
+        logging.error(f"Error downloading PDF: {e}")
+        return ""
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {e}")
+        logging.error(f"An unexpected error occurred: {e}")
+        return ""
 
 def main():
     st.set_page_config(page_title="Hope_To_Skill AI Chatbot", page_icon=":robot_face:")
@@ -92,10 +109,11 @@ def main():
     # Process the PDF in the background (hidden from user)
     if st.session_state.processComplete is None:
         files_text = load_pdf_from_url(pdf_url)
-        text_chunks = get_text_chunks(files_text)
-        vectorstore = get_vectorstore(text_chunks)
-        st.session_state.conversation = vectorstore
-        st.session_state.processComplete = True
+        if files_text:  # Proceed only if PDF was loaded successfully
+            text_chunks = get_text_chunks(files_text)
+            vectorstore = get_vectorstore(text_chunks)
+            st.session_state.conversation = vectorstore
+            st.session_state.processComplete = True
 
     # Chatbot functionality
     if input_query:
@@ -151,6 +169,7 @@ def rag(vector_db, input_query, google_api_key):
         response = rag_chain.invoke(input_query)
         return response
     except Exception as ex:
+        logging.error(f"Error in RAG process: {ex}")
         return str(ex)
 
 if __name__ == '__main__':
